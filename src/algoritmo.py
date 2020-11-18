@@ -1,4 +1,7 @@
-class Algoritmo:
+from abc import ABC, abstractmethod
+
+#Abstract class: concrete implementations of algorithms should override the methods.
+class algoritmo(ABC):
     def __init__(self, tuples):
         """
 
@@ -7,6 +10,7 @@ class Algoritmo:
         """
         self.tuples=tuples
 
-    def procesar_tuplas(self, POS):
-        raise NotImplementedError("Please Implement this method")
 
+    @abstractmethod
+    def process_tuples(self):
+        pass

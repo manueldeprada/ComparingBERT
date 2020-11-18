@@ -1,30 +1,32 @@
 import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import BertTokenizer, BertModel
 
-from algoritmo import Algoritmo
+from algoritmo import algoritmo
 
 
-class AlgoritmoBERT(Algoritmo):
-    def __init__(self, tuples):
+class algoritmo_bert(algoritmo):
+    def __init__(self, tuples, POS):
         super().__init__(tuples)
         # Load pre-trained model tokenizer (vocabulary)
         self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
         # Load pre-trained model (weights)
         self.model = BertModel.from_pretrained('bert-large-uncased', output_hidden_states=True)
+        self.POS = POS
 
-    def procesar_tuplas(self, POS):
-        puntos=[]
-        i=0
+    def process_tuples(self):
+        puntos = []
+        i = 0
         for tupla in self.tuples:
-            puntos.append(self.procesar_tupla(tupla,POS))
-            i+=1
-            print("\rProgress {:2.1%}".format(i/len(self.tuples)), end='')
+            puntos.append(self.procesar_tupla(tupla, self.POS))
+            i += 1
+            print("\r\tProgress {:2.1%}".format(i / len(self.tuples)), end='')
         return puntos
 
-    def procesar_tupla(self,tupla, POS):
+    def procesar_tupla(self, tupla, POS):
         sent1 = tupla[0].replace("@", " ")
         sent2 = tupla[1].replace("@", " ")
         POS = int(POS)
@@ -124,8 +126,3 @@ class AlgoritmoBERT(Algoritmo):
         # simil1 = cosine_similarity(summed_last_4_layers[pos1].reshape(1,-1), summed_last_4_layers[pos2].reshape(1,-1))[0][0]
         vector2 = summed_last_4_layers[pos1].reshape(1, -1)
         return cosine_similarity(vector1.reshape(1, -1), vector2.reshape(1, -1))[0][0]
-
-
-
-
-

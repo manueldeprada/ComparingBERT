@@ -1,32 +1,48 @@
 #!/usr/bin/env python3
-
-import sys, argparse, logging
+import ast
+import hashlib
+import os
+import argparse, logging
 import matplotlib.pyplot as plt
 
 import numpy as np
 from scipy.stats import spearmanr
 import file_utils
-from AlgoritmoBERT import AlgoritmoBERT
-from algoritmo import Algoritmo
+from algoritmo_bert import algoritmo_bert
+from algoritmo_bert_sentence import algoritmo_bert_sentence
 
 
 def main(args, loglevel):
     logging.basicConfig(format="%(levelname)s: %(message)s", level=loglevel)
     logging.info("Reading file: %s." % args.evaluationfile)
-    tuplas,puntos_test=file_utils.readFile(args.evaluationfile)
-    algoritmo=AlgoritmoBERT(tuplas)
-    resultado_algoritmo=algoritmo.procesar_tuplas(2)
-    puntos_test_normalizados=(puntos_test - np.min(puntos_test)) / (np.max(puntos_test) - np.min(puntos_test))
-    res = "\n".join("{} {}".format(x, y) for x, y in zip(puntos_test_normalizados, resultado_algoritmo))
-    # isto son os resultados xunto a cada golden, normalizados
+    logging.getLogger('matplotlib.font_manager').disabled = True  # bug tonto de matplotlib
+    tuplas, puntos_test = file_utils.readFile(args.evaluationfile)
+    cache_testfile_id = hashlib.md5(open(args.evaluationfile, 'rb').read()).hexdigest() + args.evaluationfile
 
-    logging.getLogger('matplotlib.font_manager').disabled = True #bug tonto
-    plt.scatter(puntos_test,resultado_algoritmo) #y=resultado
-    plt.show() #scatter plot
+    algoritmos = [algoritmo_bert(tuplas, POS=2),
+                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-mean-tokens')]
 
-    rPearson = np.corrcoef(puntos_test, resultado_algoritmo)[0][1]
-    rSpearman, p = spearmanr(puntos_test, resultado_algoritmo)
-    print("\npearson="+str(rPearson)+",spearman="+str(rSpearman)+"semval_score="+str( 2.0 * rPearson * rSpearman / (rPearson + rSpearman)))
+    for alg in algoritmos:
+        print("\nTesting: " + type(alg).__name__)
+        cache = 'cache/'+type(alg).__name__ + cache_testfile_id
+        if os.path.isfile(cache):  # if we have the result for this test file and algorithm cached, we use it
+            with open(cache, "r") as outfile:
+                resultado_algoritmo = ast.literal_eval(outfile.read())
+        else:
+            resultado_algoritmo = alg.process_tuples()
+            with open(cache, "w") as outfile:
+                outfile.write(str(resultado_algoritmo))
+
+        plt.scatter(puntos_test, resultado_algoritmo)  # y=resultado, x=referencia
+        plt.savefig('plots/' + type(alg).__name__ + '_' + args.evaluationfile + '.png')
+        plt.close()
+
+        rPearson = np.corrcoef(puntos_test, resultado_algoritmo)[0][1]
+        rSpearman, p = spearmanr(puntos_test, resultado_algoritmo)
+        print("\tpearson=" + str(rPearson) + ",spearman=" + str(rSpearman) + "\n\tcorr_mean=" + str(
+            (rPearson + rSpearman) / 2.0))
+
+    # "semval_score=" + str(  2.0 * rPearson * rSpearman / (rPearson + rSpearman)))
 
 
 if __name__ == '__main__':
