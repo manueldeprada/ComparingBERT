@@ -19,12 +19,29 @@ def main(args, loglevel):
     tuplas, puntos_test = file_utils.readFile(args.evaluationfile)
     cache_testfile_id = hashlib.md5(open(args.evaluationfile, 'rb').read()).hexdigest() + args.evaluationfile
 
-    algoritmos = [algoritmo_bert(tuplas, POS=2),
-                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-mean-tokens')]
+    algoritmos = [algoritmo_bert_sentence(tuplas, premodel='bert-large-nli-mean-tokens'),
+                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-mean-tokens'),
+                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-stsb-mean-tokens'),
+                  algoritmo_bert_sentence(tuplas, premodel='roberta-base-nli-mean-tokens'),
+                  algoritmo_bert_sentence(tuplas, premodel='distilbert-base-nli-mean-tokens'),
+                  algoritmo_bert(tuplas, POS=2, bert_version='bert-large-uncased'),
+                  algoritmo_bert(tuplas, POS=2, bert_version='bert-base-uncased'),
+                  algoritmo_bert(tuplas, POS=2, bert_version='roberta-base'),
+                  algoritmo_bert(tuplas, POS=2, bert_version='distilbert-base-uncased'),
+                  algoritmo_bert(tuplas, POS=1, bert_version='bert-large-uncased'),
+                  algoritmo_bert(tuplas, POS=1, bert_version='bert-base-uncased'),
+                  algoritmo_bert(tuplas, POS=1, bert_version='roberta-base'),
+                  algoritmo_bert(tuplas, POS=1, bert_version='distilbert-base-uncased'),
+                  algoritmo_bert(tuplas, POS=3, bert_version='bert-large-uncased'),
+                  algoritmo_bert(tuplas, POS=3, bert_version='bert-base-uncased'),
+                  algoritmo_bert(tuplas, POS=3, bert_version='roberta-base'),
+                  algoritmo_bert(tuplas, POS=3, bert_version='distilbert-base-uncased'),
+
+                  ]
 
     for alg in algoritmos:
-        print("\nTesting: " + type(alg).__name__)
-        cache = 'cache/'+type(alg).__name__ + cache_testfile_id
+        print("\nTesting: " + str(alg))
+        cache = 'cache/' + str(alg) + "-" + cache_testfile_id
         if os.path.isfile(cache):  # if we have the result for this test file and algorithm cached, we use it
             with open(cache, "r") as outfile:
                 resultado_algoritmo = ast.literal_eval(outfile.read())
@@ -33,8 +50,9 @@ def main(args, loglevel):
             with open(cache, "w") as outfile:
                 outfile.write(str(resultado_algoritmo))
 
+        plt.ylim(0.1, 1.1)
         plt.scatter(puntos_test, resultado_algoritmo)  # y=resultado, x=referencia
-        plt.savefig('plots/' + type(alg).__name__ + '_' + args.evaluationfile + '.png')
+        plt.savefig('plots/' + str(alg) + '_' + args.evaluationfile + '.png')
         plt.close()
 
         rPearson = np.corrcoef(puntos_test, resultado_algoritmo)[0][1]

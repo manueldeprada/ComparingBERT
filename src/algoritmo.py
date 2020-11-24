@@ -14,3 +14,8 @@ class algoritmo(ABC):
     @abstractmethod
     def process_tuples(self):
         pass
+
+    @abstractmethod
+    def __str__(self):
+        pass
+

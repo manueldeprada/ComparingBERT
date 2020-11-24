@@ -3,19 +3,33 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, RobertaModel, RobertaTokenizer,DistilBertTokenizer, DistilBertModel
 
 from algoritmo import algoritmo
 
 
 class algoritmo_bert(algoritmo):
-    def __init__(self, tuples, POS):
+    def __init__(self, tuples, POS, bert_version):
         super().__init__(tuples)
-        # Load pre-trained model tokenizer (vocabulary)
-        self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
-        # Load pre-trained model (weights)
-        self.model = BertModel.from_pretrained('bert-large-uncased', output_hidden_states=True)
+
+        if 'roberta' in bert_version:
+            # Load pre-trained model tokenizer (vocabulary)
+            self.tokenizer = RobertaTokenizer.from_pretrained(bert_version)
+            # Load pre-trained model (weights)
+            self.model = RobertaModel.from_pretrained(bert_version, output_hidden_states=True)
+        elif 'distilbert' in bert_version:
+            # Load pre-trained model tokenizer (vocabulary)
+            self.tokenizer = DistilBertTokenizer.from_pretrained(bert_version)
+            # Load pre-trained model (weights)
+            self.model = DistilBertModel.from_pretrained(bert_version, output_hidden_states=True)
+        else:
+            # Load pre-trained model tokenizer (vocabulary)
+            self.tokenizer = BertTokenizer.from_pretrained(bert_version)
+            # Load pre-trained model (weights)
+            self.model = BertModel.from_pretrained(bert_version, output_hidden_states=True)
+
         self.POS = POS
+        self.name=bert_version
 
     def process_tuples(self):
         puntos = []
@@ -25,6 +39,9 @@ class algoritmo_bert(algoritmo):
             i += 1
             print("\r\tProgress {:2.1%}".format(i / len(self.tuples)), end='')
         return puntos
+
+    def __str__(self):
+        return self.name + "-pos" + str(self.POS)
 
     def procesar_tupla(self, tupla, POS):
         sent1 = tupla[0].replace("@", " ")
@@ -60,9 +77,13 @@ class algoritmo_bert(algoritmo):
             # print(tok,POS,pos,token_i)
             hidden_layers = []
             # For each of the 12 layers...
-            for layer_i in range(len(encoded_layers[2])):
+            if(len(encoded_layers)>2):
+                layer=2
+            else:
+                layer=1
+            for layer_i in range(len(encoded_layers[layer])):
                 # Lookup the vector for `token_i` in `layer_i`
-                vec = encoded_layers[2][layer_i][batch_i][token_i]
+                vec = encoded_layers[layer][layer_i][batch_i][token_i]
                 # vec = encoded_layers[layer_i][batch_i][token_i]
                 hidden_layers.append(vec)
             token_embeddings.append(hidden_layers)
@@ -105,10 +126,14 @@ class algoritmo_bert(algoritmo):
             if tok.startswith("##"):
                 continue
             hidden_layers = []
+            if (len(encoded_layers) > 2):
+                layer = 2
+            else:
+                layer = 1
             # For each of the 12 layers...
-            for layer_i in range(len(encoded_layers[2])):
+            for layer_i in range(len(encoded_layers[layer])):
                 # Lookup the vector for `token_i` in `layer_i`
-                vec = encoded_layers[2][layer_i][batch_i][token_i]
+                vec = encoded_layers[layer][layer_i][batch_i][token_i]
                 # vec = encoded_layers[layer_i][batch_i][token_i]
                 hidden_layers.append(vec)
             token_embeddings.append(hidden_layers)
