@@ -1,3 +1,3 @@
 # ComparingBERT
 
-Comparing BERT-like models in word embedding contextualization.
+Comparing BERT-like models in word embeddings contextualization.
