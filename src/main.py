@@ -1,89 +1,104 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import hashlib
+import logging
 import os
-import argparse, logging
-import matplotlib.pyplot as plt
 
 import numpy as np
-from scipy.stats import spearmanr
+import matplotlib.pyplot as plt
+from scipy.stats import spearmanr, pearsonr
+
 import file_utils
-from algoritmo_bert import algoritmo_bert
-from algoritmo_bert_sentence import algoritmo_bert_sentence
+from bert_sentence_tester import BertSentenceTester
+from bert_tester import BertTester
 
 
-def main(args, loglevel):
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=loglevel)
-    logging.info("Reading file: %s." % args.evaluationfile)
-    logging.getLogger('matplotlib.font_manager').disabled = True  # bug tonto de matplotlib
-    tuplas, puntos_test = file_utils.readFile(args.evaluationfile)
-    cache_testfile_id = hashlib.md5(open(args.evaluationfile, 'rb').read()).hexdigest() + args.evaluationfile
+def main(args):
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
-    algoritmos = [algoritmo_bert_sentence(tuplas, premodel='bert-large-nli-mean-tokens'),
-                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-mean-tokens'),
-                  algoritmo_bert_sentence(tuplas, premodel='bert-base-nli-stsb-mean-tokens'),
-                  algoritmo_bert_sentence(tuplas, premodel='roberta-base-nli-mean-tokens'),
-                  algoritmo_bert_sentence(tuplas, premodel='distilbert-base-nli-mean-tokens'),
-                  algoritmo_bert(tuplas, POS=2, bert_version='bert-large-uncased'),
-                  algoritmo_bert(tuplas, POS=2, bert_version='bert-base-uncased'),
-                  algoritmo_bert(tuplas, POS=2, bert_version='roberta-base'),
-                  algoritmo_bert(tuplas, POS=2, bert_version='distilbert-base-uncased'),
-                  algoritmo_bert(tuplas, POS=1, bert_version='bert-large-uncased'),
-                  algoritmo_bert(tuplas, POS=1, bert_version='bert-base-uncased'),
-                  algoritmo_bert(tuplas, POS=1, bert_version='roberta-base'),
-                  algoritmo_bert(tuplas, POS=1, bert_version='distilbert-base-uncased'),
-                  algoritmo_bert(tuplas, POS=3, bert_version='bert-large-uncased'),
-                  algoritmo_bert(tuplas, POS=3, bert_version='bert-base-uncased'),
-                  algoritmo_bert(tuplas, POS=3, bert_version='roberta-base'),
-                  algoritmo_bert(tuplas, POS=3, bert_version='distilbert-base-uncased'),
+    for file in args.dataset_file:
+        logging.info("Reading file: %s." % file)
+        pairs, dataset_similarities = file_utils.read_file(file)
+        cache_file_id = hashlib.md5(open(file, 'rb').read()).hexdigest() + file
 
-                  ]
+        models = [
+            BertSentenceTester(pairs, version='bert-large-nli-mean-tokens'),
+            BertSentenceTester(pairs, version='bert-base-nli-mean-tokens'),
+            BertSentenceTester(pairs, version='roberta-base-nli-mean-tokens'),
+            BertSentenceTester(pairs, version='distilbert-base-nli-mean-tokens'),
+            BertTester(pairs, similarity_type='head', version='bert-large-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='head', version='bert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='head', version='roberta-base', combine_method='sum'),
+            BertTester(pairs, similarity_type='head', version='distilbert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-subj', version='bert-large-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-subj', version='bert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-subj', version='roberta-base', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-subj', version='distilbert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-obj', version='bert-large-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-obj', version='bert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-obj', version='roberta-base', combine_method='sum'),
+            BertTester(pairs, similarity_type='dep-obj', version='distilbert-base-uncased', combine_method='sum'),
+            BertTester(pairs, similarity_type='head', version='bert-large-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='head', version='bert-base-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='head', version='roberta-base', combine_method='concat'),
+            BertTester(pairs, similarity_type='head', version='distilbert-base-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-subj', version='bert-large-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-subj', version='bert-base-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-subj', version='roberta-base', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-subj', version='distilbert-base-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-obj', version='bert-large-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-obj', version='bert-base-uncased', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-obj', version='roberta-base', combine_method='concat'),
+            BertTester(pairs, similarity_type='dep-obj', version='distilbert-base-uncased', combine_method='concat'),
+        ]
 
-    for alg in algoritmos:
-        print("\nTesting: " + str(alg))
-        cache = 'cache/' + str(alg) + "-" + cache_testfile_id
-        if os.path.isfile(cache):  # if we have the result for this test file and algorithm cached, we use it
-            with open(cache, "r") as outfile:
-                resultado_algoritmo = ast.literal_eval(outfile.read())
-        else:
-            resultado_algoritmo = alg.process_tuples()
-            with open(cache, "w") as outfile:
-                outfile.write(str(resultado_algoritmo))
+        for model in models:
+            # Do not launch dep-obj focused models in NV datasets.
+            if len(pairs[0][0].split('@')) < 3 and \
+                    hasattr(model, 'similarity_type') and model.similarity_type == 'dep-obj':
+                continue
+            print("Model: " + str(model) + ", dataset: " + file)
+            cache = 'cache/' + str(model) + "-" + cache_file_id
+            if os.path.isfile(cache):  # We look for the file of cached similarities.
+                with open(cache, "r") as outfile:
+                    model_similarities = ast.literal_eval(outfile.read())
+            else:
+                model_similarities = model.process_pairs()
+                with open(cache, "w") as outfile:  # Write the cache file for the future
+                    outfile.write(str(model_similarities))
 
-        plt.ylim(0.1, 1.1)
-        plt.scatter(puntos_test, resultado_algoritmo)  # y=resultado, x=referencia
-        plt.savefig('plots/' + str(alg) + '_' + args.evaluationfile + '.png')
-        plt.close()
+            pearson_corr, _ = pearsonr(dataset_similarities, model_similarities)
+            spearman_corr, _ = spearmanr(dataset_similarities, model_similarities)
+            mean = "{:.2f}".format(100.0 * 2.0 * pearson_corr * spearman_corr / (pearson_corr + spearman_corr))
+            if pearson_corr * spearman_corr < 0:  # If not both positive or negative, standard mean instead of harmonic
+                mean = "{:.2f}".format(100.0 * (pearson_corr + spearman_corr) / 2.0) + '*'
+            print("\r\tPearson=" + "{:.2f}".format(100.0 * pearson_corr) + ", Spearman=" + "{:.2f}".format(
+                100.0 * spearman_corr) + ", Mean=" + mean)
 
-        rPearson = np.corrcoef(puntos_test, resultado_algoritmo)[0][1]
-        rSpearman, p = spearmanr(puntos_test, resultado_algoritmo)
-        print("\tpearson=" + str(rPearson) + ",spearman=" + str(rSpearman) + "\n\tcorr_mean=" + str(
-            (rPearson + rSpearman) / 2.0))
+            # plt.ylim(0.1, 1.1)  # Scale for the plots
+            # plt.scatter(dataset_similarities, model_similarities)
+            # plt.savefig('plots/' + str(model) + '-' + file + '.png')
+            # plt.close()
 
-    # "semval_score=" + str(  2.0 * rPearson * rSpearman / (rPearson + rSpearman)))
+            dataset_standarized = np.array(dataset_similarities)
+            dataset_standarized = (dataset_standarized - np.mean(dataset_standarized)) / np.std(dataset_standarized)
+            model_standarized = np.array(model_similarities)
+            model_standarized = (model_standarized - np.mean(model_standarized)) / np.std(model_standarized)
+            plt.xlim(-1.5, 2.15)  # Scale for the plots
+            plt.ylim(-2.5, 2.5)  # Scale for the plots
+            plt.scatter(dataset_standarized, model_standarized)
+            plt.savefig('plots_standarized/' + str(model) + '-' + file + '.png')
+            plt.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Flexible NLP sense comparator.",
-        epilog="As an alternative to the commandline, params can be placed in a file, one per line, and specified on the commandline like '%(prog)s @params.conf'.",
-        fromfile_prefix_chars='@')
-    # parser.add_argument(
-    #     "argument",
-    #     help="argumento posicional",
-    #     metavar="ARG")
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        help="increase output verbosity",
-        action="store_true")
-    parser.add_argument("--evaluationfile", "-f", type=str, required=True)
-    args = parser.parse_args()
-
-    # Setup logging
-    if args.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
-
-    main(args, loglevel)
+        description="A flexible sentence similarity models comparator with a cache for already tested models.",
+        epilog="See README on github.com/....")
+    parser.add_argument("dataset_file", type=str, nargs='+',
+                        help="File path of one or more dataset files to execute the models."
+                             "Dataset file should contain pairs of NV or NVN expressions "
+                             "following Mitchell and Lapata (2008) format.")
+    main(parser.parse_args())

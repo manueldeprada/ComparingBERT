@@ -1,24 +1,24 @@
-from algoritmo import algoritmo
+from model_tester import ModelTester
 from sentence_transformers import SentenceTransformer
 from scipy.spatial.distance import cosine
 
 
-class algoritmo_bert_sentence(algoritmo):
-    def __init__(self, tuples, premodel):
+class BertSentenceTester(ModelTester):
+    def __init__(self, pairs, version):
         """
 
-        :type tuples: tuples that have the form (a,b,c...).
+        :type pairs: pairs that have the form (a,b,c...).
                       We will return the similarity between a,b,c...
         """
-        super().__init__(tuples)
-        self.tuples = tuples
-        self.model = SentenceTransformer(premodel)
-        self.name=premodel
+        super().__init__(pairs)
+        self.tuples = pairs
+        self.model = SentenceTransformer(version)
+        self.name=version
 
     def __str__(self):
         return "sentence_"+self.name
 
-    def process_tuples(self):
+    def process_pairs(self):
         puntos = []
         i = 0
         for tupla in self.tuples:
